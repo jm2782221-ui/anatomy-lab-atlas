@@ -593,7 +593,7 @@ renderer.domElement.addEventListener('pointerup',e=>{if(!down)return;const moved
 function toExplore(){if(S.tab!=='explore')setTab('explore',true);}
 function isolate(pid){toExplore();S.iso=pid;S.sel=null;applyScene();render();frame(boxOfIds([pid]));}
 function selectMark(id,pid){toExplore();pid=pid||firstPid(id);const it=instOf(pid,id);if(!it)return;S.iso=pid;S.sel={kind:'mark',id,pid};applyScene();render();
-  const sz=boxOfIds([pid]).getSize(new THREE.Vector3()).length();flyTo(it.pos,Math.max(0.9,Math.min(2.7,sz*1.4)));}
+  const sz=boxOfIds([pid]).getSize(new THREE.Vector3()).length();flyTo(it.pos,Math.max(0.5,Math.min(2.7,sz*1.4)));}
 function selectMus(k,s){toExplore();s=s||'R';ensureMuscles().then(()=>{S.iso=null;S.sel={kind:'mus',key:k,s};applyScene();render();
   const ids=PARTS.filter(p=>p.mk===k&&p.sd===s).map(p=>p.id);const c=partCenter(ids);frame(boxOfIds(ids),c.z<-0.3?[0.2,0.1,-1]:[0.2,0.1,1]);});}
 function selectPart(pid){const p=PBY[pid];if(p.k==='bone'){isolate(pid);return;}
@@ -742,7 +742,10 @@ function quizPool(){const sc=S.quiz.scope,pool=S.quiz.pool;
 function nextQ(){const Q=S.quiz;Q.answered=false;Q.picked=null;Q.guess='';
   if(Q.pool==='muscles'&&!musReady){Q.cur=null;render();ensureMuscles().then(()=>{if(S.tab==='quiz')nextQ();});return;}
   const pool=quizPool();if(!pool.length){Q.cur=null;applyScene();render();renderChips();return;}
-  let c;do{c=pool[Math.floor(Math.random()*pool.length)];}while(pool.length>1&&Q.cur&&keyOf(c)===keyOf(Q.cur));Q.cur=c;
+  // pick a bone type first so small repeated bones (phalanges, ribs) don't dominate
+  const grp={};pool.forEach(x=>{const pid=x.kind==='mark'?x.pid:x.id;const g=(AM.BK[pid]||PBY[pid].k)+(x.kind==='part'&&PBY[pid].k==='muscle'?':'+PBY[pid].rg:'');(grp[g]=grp[g]||[]).push(x);});
+  const gk=Object.keys(grp);const pick=()=>{const l=grp[gk[Math.floor(Math.random()*gk.length)]];return l[Math.floor(Math.random()*l.length)];};
+  let c,tries=0;do{c=pick();tries++;}while(pool.length>1&&Q.cur&&keyOf(c)===keyOf(Q.cur)&&tries<20);Q.cur=c;
   let cand;
   if(c.kind==='mark'){const seen=new Set([norm(MD[c.id].n)]);const uniq=l=>l.filter(x=>{const k=norm(MD[x.id].n);if(seen.has(k))return false;seen.add(k);return true;});
     cand=uniq(PM[c.pid].filter(x=>x.id!==c.id).map(x=>({kind:'mark',pid:c.pid,id:x.id})));
@@ -751,7 +754,7 @@ function nextQ(){const Q=S.quiz;Q.answered=false;Q.picked=null;Q.guess='';
     cand=PARTS.filter(x=>x.k===p.k&&x.rg===p.rg&&meshes[x.id]&&x.id!==p.id).filter(x=>{const k=norm(x.nm);if(seen.has(k))return false;seen.add(k);return true;}).map(x=>({kind:'part',id:x.id}));}
   cand.sort(()=>Math.random()-.5);Q.choices=[c,...cand.slice(0,3)].sort(()=>Math.random()-.5);
   applyScene();render();renderChips();
-  if(c.kind==='mark'){const it=instOf(c.pid,c.id);const sz=boxOfIds([c.pid]).getSize(new THREE.Vector3()).length();flyTo(it.pos,Math.max(1.0,Math.min(3.0,sz*1.6)),pickDir(it,c.pid));}
+  if(c.kind==='mark'){const it=instOf(c.pid,c.id);const sz=boxOfIds([c.pid]).getSize(new THREE.Vector3()).length();flyTo(it.pos,Math.max(0.55,Math.min(3.0,sz*1.6)),pickDir(it,c.pid));}
   else{const ctr=partCenter([c.id]);const bx=boxOfIds([c.id]);bx.expandByScalar(Math.max(0.35,bx.getSize(new THREE.Vector3()).length()*0.35));frame(bx,ctr.z<-0.35?[0.15,0.1,-1]:[0.15,0.1,1]);}}
 function pickDir(it,pid){const ctr=partCenter([pid]);const off=it.pos.clone().sub(ctr).normalize();const n=it.n;
   return [n.x*0.8+off.x*0.4,0.15+n.y*0.3,n.z*0.8+off.z*0.4+0.05];}
